@@ -1,0 +1,74 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import pickle
+
+# Load saved model and vectorizer
+model = pickle.load(open("model.pkl", "rb"))
+vectorizer = pickle.load(open("vectorizer.pkl", "rb"))
+
+# Create main window
+window = tk.Tk()
+window.title("Fake News Detection System")
+window.geometry("750x550")
+
+# Function to detect fake news
+def detect_news():
+    article = text_box.get("1.0", tk.END).strip()
+
+    if article == "":
+        messagebox.showwarning("Warning", "Please enter or upload an article.")
+        return
+
+    # Vectorize the input article
+    vectorized_text = vectorizer.transform([article])
+
+    # Predict the class
+    prediction = model.predict(vectorized_text)[0]
+
+    # Get confidence score
+    if hasattr(model, "decision_function"):
+        # For binary classifier, decision_function returns distance from hyperplane
+        score = model.decision_function(vectorized_text)[0]
+        # Convert score to probability-like percentage using sigmoid
+        import math
+        confidence = 1 / (1 + math.exp(-abs(score)))  # Sigmoid
+        confidence_percent = round(confidence * 100, 2)
+    else:
+        confidence_percent = None
+
+    # Display result
+    if prediction.lower() == "fake":
+        text = f"FAKE NEWS ❌ ({confidence_percent}%)" if confidence_percent else "FAKE NEWS ❌"
+        result_label.config(text=text, fg="red")
+    else:
+        text = f"REAL NEWS ✅ ({confidence_percent}%)" if confidence_percent else "REAL NEWS ✅"
+        result_label.config(text=text, fg="green")
+    
+# Function to upload article file
+def upload_file():
+    file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
+
+    if file_path:
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+            text_box.delete("1.0", tk.END)
+            text_box.insert(tk.END, content)
+
+# UI Components
+title_label = tk.Label(window, text="Fake News Detection System", font=("Arial", 18))
+title_label.pack(pady=10)
+
+text_box = tk.Text(window, height=18, width=90)
+text_box.pack(pady=10)
+
+upload_button = tk.Button(window, text="Upload Article (.txt)", command=upload_file)
+upload_button.pack(pady=5)
+
+detect_button = tk.Button(window, text="Detect News", command=detect_news)
+detect_button.pack(pady=5)
+
+result_label = tk.Label(window, text="", font=("Arial", 16))
+result_label.pack(pady=20)
+
+# Run application
+window.mainloop()
